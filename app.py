@@ -1,27 +1,25 @@
 import hashlib
-from starlette.applications import Starlette
-from starlette.requests import Request
-from starlette.routing import Mount
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 
 EMAIL = "23f2004044@ds.study.iitm.ac.in".strip().lower()
 
-mcp = FastMCP(
-    "Exam MCP",
-    stateless_http=True,
-    json_response=True,
+mcp = FastMCP("Exam MCP")
+
+
+@mcp.tool(
+    name="solve_challenge",
+    description="Solve the exam challenge."
 )
-
-
-@mcp.tool(name="solve_challenge")
-async def solve_challenge(request: Request) -> str:
+async def solve_challenge(ctx: Context) -> str:
     """
-    Returns first 16 hex chars of:
-    SHA256(challenge:email)
+    Reads the challenge from HTTP headers and returns the
+    first 16 hex chars of SHA256(challenge:email)
     """
 
-    challenge = request.headers.get("X-Exam-Challenge", "")
+    headers = ctx.request.headers
+
+    challenge = headers.get("X-Exam-Challenge", "")
 
     digest = hashlib.sha256(
         f"{challenge}:{EMAIL}".encode()
@@ -30,8 +28,4 @@ async def solve_challenge(request: Request) -> str:
     return digest[:16]
 
 
-app = Starlette(
-    routes=[
-        Mount("/", app=mcp.streamable_http_app())
-    ]
-)
+app = mcp.streamable_http_app()
