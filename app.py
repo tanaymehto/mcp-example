@@ -5,8 +5,10 @@ EMAIL = "23f2004044@ds.study.iitm.ac.in".strip().lower()
 
 mcp = FastMCP("Exam MCP")
 
-
-@mcp.tool
+@mcp.tool(
+    name="solve_challenge",
+    description="Solve the exam challenge."
+)
 async def solve_challenge(ctx: Context) -> str:
     challenge = ctx.headers.get("X-Exam-Challenge", "")
 
