@@ -2,6 +2,7 @@ from contextvars import ContextVar
 import hashlib
 import os
 from starlette.requests import Request
+from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server.fastmcp import FastMCP, Context
 import uvicorn
 
@@ -23,13 +24,15 @@ async def solve_challenge(ctx: Context) -> str:
 
 app = mcp.streamable_http_app()
 
-@app.middleware("http")
-async def add_request_context(request: Request, call_next):
-    token = _req.set(request)
-    try:
-        return await call_next(request)
-    finally:
-        _req.reset(token)
+class RequestContextMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        token = _req.set(request)
+        try:
+            return await call_next(request)
+        finally:
+            _req.reset(token)
+
+app.add_middleware(RequestContextMiddleware)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
