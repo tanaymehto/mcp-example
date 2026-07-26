@@ -4,11 +4,12 @@ import os
 from starlette.requests import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.transport_security import TransportSecuritySettings
 import uvicorn
 
 EMAIL = "23f2004044@ds.study.iitm.ac.in".strip().lower()
 
-mcp = FastMCP("Exam MCP")
+mcp = FastMCP("Exam MCP", transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
 _req: ContextVar[Request] = ContextVar("request")
 
 @mcp.tool(
