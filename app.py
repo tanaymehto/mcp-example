@@ -11,6 +11,7 @@ mcp = FastMCP("Exam MCP", transport_security=TransportSecuritySettings(enable_dn
 
 LATEST_CHALLENGE = ""
 CHALLENGES_BY_ID = {}
+CHALLENGE_QUEUE = []
 
 @mcp.tool(
     name="solve_challenge",
@@ -19,15 +20,22 @@ CHALLENGES_BY_ID = {}
 async def solve_challenge(ctx: Context) -> str:
     global LATEST_CHALLENGE
     msg_id = None
-    if hasattr(ctx, "request_id"): msg_id = ctx.request_id
-    elif hasattr(ctx, "request_context"):
-        rc = ctx.request_context
+    
+    rc = getattr(ctx, "request_context", None)
+    if rc:
         if hasattr(rc, "request_id"): msg_id = rc.request_id
         elif hasattr(rc, "meta") and hasattr(rc.meta, "id"): msg_id = rc.meta.id
-        elif hasattr(rc, "message_id"): msg_id = rc.message_id
+
+    if getattr(ctx, "request_id", None):
+        msg_id = getattr(ctx, "request_id")
+
+    msg_id_str = str(msg_id) if msg_id is not None else None
     
-    challenge = CHALLENGES_BY_ID.get(msg_id) if (msg_id and msg_id in CHALLENGES_BY_ID) else LATEST_CHALLENGE
-    if not challenge:
+    if msg_id_str and msg_id_str in CHALLENGES_BY_ID:
+        challenge = CHALLENGES_BY_ID[msg_id_str]
+    elif CHALLENGE_QUEUE:
+        challenge = CHALLENGE_QUEUE.pop(0)
+    else:
         challenge = LATEST_CHALLENGE
         
     return hashlib.sha256(
@@ -46,6 +54,8 @@ class ChallengeMiddleware:
             challenge = next((v.decode("latin1") for k, v in scope["headers"] if k.lower() == b"x-exam-challenge"), "")
             if challenge:
                 LATEST_CHALLENGE = challenge
+                CHALLENGE_QUEUE.append(challenge)
+                
                 body = b""
                 more_body = True
                 messages = []
@@ -57,9 +67,9 @@ class ChallengeMiddleware:
                 try:
                     data = json.loads(body)
                     if isinstance(data, dict):
-                        msg_id = data.get("id")
-                        if msg_id is not None:
-                            CHALLENGES_BY_ID[msg_id] = challenge
+                        m_id = data.get("id")
+                        if m_id is not None:
+                            CHALLENGES_BY_ID[str(m_id)] = challenge
                 except Exception:
                     pass
                 
